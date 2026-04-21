@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>整理番号発行（テスト用）</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      text-align: center;
+    }
+    h1 {
+      font-size: 7vw;
+      margin-top: 6vh;
+    }
+    button {
+      font-size: 6vw;
+      padding: 20px;
+      width: 90%;
+      max-width: 420px;
+    }
+    .number {
+      margin-top: 6vh;
+      font-size: 25vw;
+      color: blue;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>整理番号発行（テスト）</h1>
+<button onclick="issue()">整理番号を発行</button>
+<div class="number" id="myNumber"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    updateDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCp0b5owSOIq5QDJHJKkxtOdwVk9roJ3VI",
+    authDomain: "soudan-cd1c7.firebaseapp.com",
+    projectId: "soudan-cd1c7"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const systemRef = doc(db, "systems", "main");
+
+  async function issue() {
+    const snap = await getDoc(systemRef);
+    const data = snap.data();
+
+    const issueNumber = data.issueNumber;
+    const queue = data.queue;
+
+    document.getElementById("myNumber").textContent = issueNumber;
+    queue.push(issueNumber);
+
+    await updateDoc(systemRef, {
+      issueNumber: issueNumber + 1,
+      queue: queue
+    });
+  }
+
+  window.issue = issue;
+</script>
+
+</body>
+</html>
