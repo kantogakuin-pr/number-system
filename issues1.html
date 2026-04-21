@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>整理番号発行</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+    }
+    button {
+      font-size: 28px;
+      padding: 20px 40px;
+    }
+    .number {
+      margin-top: 30px;
+      font-size: 80px;
+      color: blue;
+    }
+    input {
+      font-size: 20px;
+      padding: 8px;
+      width: 80%;
+      max-width: 400px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>整理番号を発行します</h1>
+
+<!-- デモ用：LINEユーザーID入力（本番では自動取得想定） -->
+<input id="@913nyorw" placeholder="LINEユーザーID（デモ用）">
+
+<br>
+<button onclick="issue()">整理番号を発行</button>
+
+<div class="number" id="myNumber"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    updateDoc,
+    collection,
+    addDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCp0b5owSOIq5QDJHJKkxtOdwVk9roJ3VI",
+    authDomain: "soudan-cd1c7.firebaseapp.com",
+    projectId: "soudan-cd1c7"
+
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const systemRef = doc(db, "systems", "main");
+
+  async function issue() {
+
+    // 端末1回制限（必要に応じて）
+    if (localStorage.getItem("issued")) {
+      alert("すでに整理番号を発行しています。");
+      return;
+    }
+
+    const lineUserId =
+      document.getElementById("lineUserId").value.trim();
+
+    if (!lineUserId) {
+      alert("LINEユーザーIDが取得できません。");
+      return;
+    }
+
+    const snap = await getDoc(systemRef);
+    const data = snap.data();
+
+    const issueNumber = data.issueNumber;
+    const queue = data.queue;
+
+    // 番号表示
+    document.getElementById("myNumber").textContent = issueNumber;
+
+    // 呼び出し待ちへ
+    queue.push(issueNumber);
+
+    await updateDoc(systemRef, {
+      issueNumber: issueNumber + 1,
+      queue: queue
+    });
+
+    // ★ LINE通知用の登録（ここが追加点）
+    await addDoc(collection(db, "tickets"), {
+      number: issueNumber,
+      lineUserId: lineUserId,
+      notified: false,
+      createdAt: new Date()
+    });
+
+    localStorage.setItem("issued", "true");
+  }
+
+  window.issue = issue;
+</script>
+
+</body>
+</html>
