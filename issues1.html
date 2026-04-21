@@ -19,10 +19,10 @@
     }
     input {
       font-size: 20px;
-      padding: 8px;
+      padding: 10px;
       width: 80%;
-      max-width: 400px;
-      margin-bottom: 20px;
+      max-width: 360px;
+      margin: 20px 0;
     }
   </style>
 </head>
@@ -31,8 +31,8 @@
 
 <h1>整理番号を発行します</h1>
 
-<!-- デモ用：LINEユーザーID入力（本番では自動取得想定） -->
-<input id="@913nyorw" placeholder="LINEユーザーID（デモ用）">
+<p>※ LINE通知を受け取るために必要です</p>
+<input id="lineUserId" placeholder="LINEユーザーIDを入力してください">
 
 <br>
 <button onclick="issue()">整理番号を発行</button>
@@ -50,11 +50,11 @@
     addDoc
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+  // 🔴 Firebase設定（自分のものに）
   const firebaseConfig = {
     apiKey: "AIzaSyCp0b5owSOIq5QDJHJKkxtOdwVk9roJ3VI",
     authDomain: "soudan-cd1c7.firebaseapp.com",
     projectId: "soudan-cd1c7"
-
   };
 
   const app = initializeApp(firebaseConfig);
@@ -63,9 +63,9 @@
 
   async function issue() {
 
-    // 端末1回制限（必要に応じて）
+    // 端末1回制限（本番向け）
     if (localStorage.getItem("issued")) {
-      alert("すでに整理番号を発行しています。");
+      alert("この端末ではすでに整理番号を発行しています。");
       return;
     }
 
@@ -73,7 +73,7 @@
       document.getElementById("lineUserId").value.trim();
 
     if (!lineUserId) {
-      alert("LINEユーザーIDが取得できません。");
+      alert("LINEユーザーIDを入力してください。");
       return;
     }
 
@@ -83,30 +83,9 @@
     const issueNumber = data.issueNumber;
     const queue = data.queue;
 
-    // 番号表示
+    // 表示
     document.getElementById("myNumber").textContent = issueNumber;
 
     // 呼び出し待ちへ
     queue.push(issueNumber);
 
-    await updateDoc(systemRef, {
-      issueNumber: issueNumber + 1,
-      queue: queue
-    });
-
-    // ★ LINE通知用の登録（ここが追加点）
-    await addDoc(collection(db, "tickets"), {
-      number: issueNumber,
-      lineUserId: lineUserId,
-      notified: false,
-      createdAt: new Date()
-    });
-
-    localStorage.setItem("issued", "true");
-  }
-
-  window.issue = issue;
-</script>
-
-</body>
-</html>
