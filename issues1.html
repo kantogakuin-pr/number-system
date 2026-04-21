@@ -10,23 +10,15 @@
       font-family: sans-serif;
       text-align: center;
     }
-
     h1 {
       font-size: 7vw;
       margin-top: 6vh;
     }
-
-    .description {
-      font-size: 4.5vw;
-      margin: 2vh 0;
-    }
-
     label {
       font-size: 4.5vw;
       display: block;
       margin: 2vh 0;
     }
-
     input {
       font-size: 5vw;
       padding: 12px;
@@ -34,14 +26,12 @@
       max-width: 420px;
       margin-bottom: 2vh;
     }
-
     button {
       font-size: 6vw;
       padding: 20px;
       width: 90%;
       max-width: 420px;
     }
-
     .number {
       margin-top: 6vh;
       font-size: 25vw;
@@ -54,14 +44,9 @@
 
 <h1>整理番号を発行します</h1>
 
-<p class="description">
-  LINE通知は任意です。<br>
-  通知を希望しない場合は番号表示を確認してください。
-</p>
-
 <label>
   <input type="checkbox" id="useLine">
-  LINEで呼び出し通知を受け取る
+  LINEで呼び出し通知を受け取る（任意）
 </label>
 
 <div id="lineArea" style="display:none;">
@@ -93,13 +78,19 @@
   const db = getFirestore(app);
   const systemRef = doc(db, "systems", "main");
 
-  document.getElementById("useLine").addEventListener("change", (e) => {
+  document.getElementById("useLine").addEventListener("change", e => {
     document.getElementById("lineArea").style.display =
       e.target.checked ? "block" : "none";
   });
 
   async function issue() {
-    if (localStorage.getItem("issued")) {
+    const snap = await getDoc(systemRef);
+    const data = snap.data();
+
+    const currentEventId = data.eventId;
+    const issuedEventId = localStorage.getItem("issuedEventId");
+
+    if (issuedEventId == currentEventId) {
       alert("この端末ではすでに整理番号を発行しています。");
       return;
     }
@@ -111,9 +102,6 @@
       alert("LINE通知を利用する場合はユーザーIDを入力してください。");
       return;
     }
-
-    const snap = await getDoc(systemRef);
-    const data = snap.data();
 
     const issueNumber = data.issueNumber;
     const queue = data.queue;
@@ -130,10 +118,11 @@
       number: issueNumber,
       lineUserId: useLine ? lineUserId : null,
       notified: false,
+      eventId: currentEventId,
       createdAt: new Date()
     });
 
-    localStorage.setItem("issued", "true");
+    localStorage.setItem("issuedEventId", currentEventId);
   }
 
   window.issue = issue;
