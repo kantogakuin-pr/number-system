@@ -54,7 +54,14 @@ button {
 <button onclick="issue()">整理番号を発行</button>
 
 <div class="number" id="myNumber"></div>
+<label style="font-size:4.5vw;">
+  <input type="checkbox" id="useLine">
+  LINEで呼び出し通知を受け取る（任意）
+</label>
 
+<div id="lineArea" style="display:none;">
+  <input id="lineUserId" placeholder="LINEユーザーIDを入力">
+</div>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import {
@@ -105,3 +112,46 @@ button {
     // 呼び出し待ちへ
     queue.push(issueNumber);
 
+
+document.getElementById("useLine").addEventListener("change", (e) => {
+  document.getElementById("lineArea").style.display =
+    e.target.checked ? "block" : "none";
+});
+async function issue() {
+  if (localStorage.getItem("issued")) {
+    alert("この端末ではすでに整理番号を発行しています。");
+    return;
+  }
+
+  const useLine = document.getElementById("useLine").checked;
+  const lineUserId = document.getElementById("lineUserId").value.trim();
+
+  if (useLine && !lineUserId) {
+    alert("LINE通知を有効にする場合はユーザーIDを入力してください。");
+    return;
+  }
+
+  const snap = await getDoc(systemRef);
+  const data = snap.data();
+
+  const issueNumber = data.issueNumber;
+  const queue = data.queue;
+
+  document.getElementById("myNumber").textContent = issueNumber;
+  queue.push(issueNumber);
+
+  await updateDoc(systemRef, {
+    issueNumber: issueNumber + 1,
+    queue: queue
+  });
+
+  // ★ LINEあり／なしを区別して保存
+  await addDoc(collection(db, "tickets"), {
+    number: issueNumber,
+    lineUserId: useLine ? lineUserId : null,
+    notified: false,
+    createdAt: new Date()
+  });
+
+  localStorage.setItem("issued", "true");
+}
