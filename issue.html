@@ -5,24 +5,47 @@
   <title>整理番号発行</title>
   <style>
     body {
+      margin: 0;
+      padding: 0;
       font-family: sans-serif;
       text-align: center;
     }
-    button {
-      font-size: 28px;
-      padding: 20px 40px;
+
+    h1 {
+      font-size: 7vw;
+      margin-top: 6vh;
     }
-    .number {
-      margin-top: 30px;
-      font-size: 80px;
-      color: blue;
+
+    .description {
+      font-size: 4.5vw;
+      margin: 2vh 0;
     }
+
+    label {
+      font-size: 4.5vw;
+      display: block;
+      margin: 2vh 0;
+    }
+
     input {
-      font-size: 20px;
-      padding: 10px;
-      width: 80%;
-      max-width: 360px;
-      margin: 20px 0;
+      font-size: 5vw;
+      padding: 12px;
+      width: 90%;
+      max-width: 420px;
+      margin-bottom: 2vh;
+    }
+
+    button {
+      font-size: 6vw;
+      padding: 20px;
+      width: 90%;
+      max-width: 420px;
+    }
+
+    .number {
+      margin-top: 6vh;
+      font-size: 25vw;
+      color: blue;
     }
   </style>
 </head>
@@ -31,10 +54,20 @@
 
 <h1>整理番号を発行します</h1>
 
-<p>※ LINE通知を受け取るために必要です</p>
-<input id="lineUserId" placeholder="LINEユーザーIDを入力してください">
+<p class="description">
+  LINE通知は任意です。<br>
+  通知を希望しない場合は番号表示を確認してください。
+</p>
 
-<br>
+<label>
+  <input type="checkbox" id="useLine">
+  LINEで呼び出し通知を受け取る
+</label>
+
+<div id="lineArea" style="display:none;">
+  <input id="lineUserId" placeholder="LINEユーザーIDを入力">
+</div>
+
 <button onclick="issue()">整理番号を発行</button>
 
 <div class="number" id="myNumber"></div>
@@ -50,7 +83,6 @@
     addDoc
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  // 🔴 Firebase設定（自分のものに）
   const firebaseConfig = {
     apiKey: "AIzaSyCp0b5owSOIq5QDJHJKkxtOdwVk9roJ3VI",
     authDomain: "soudan-cd1c7.firebaseapp.com",
@@ -61,14 +93,16 @@
   const db = getFirestore(app);
   const systemRef = doc(db, "systems", "main");
 
-  async function issue() {
+  document.getElementById("useLine").addEventListener("change", (e) => {
+    document.getElementById("lineArea").style.display =
+      e.target.checked ? "block" : "none";
+  });
 
-  
-    const lineUserId =
-      document.getElementById("lineUserId").value.trim();
+    const useLine = document.getElementById("useLine").checked;
+    const lineUserId = document.getElementById("lineUserId").value.trim();
 
-    if (!lineUserId) {
-      alert("LINEユーザーIDを入力してください。");
+    if (useLine && !lineUserId) {
+      alert("LINE通知を利用する場合はユーザーIDを入力してください。");
       return;
     }
 
@@ -78,9 +112,26 @@
     const issueNumber = data.issueNumber;
     const queue = data.queue;
 
-    // 表示
     document.getElementById("myNumber").textContent = issueNumber;
-
-    // 呼び出し待ちへ
     queue.push(issueNumber);
 
+    await updateDoc(systemRef, {
+      issueNumber: issueNumber + 1,
+      queue: queue
+    });
+
+    await addDoc(collection(db, "tickets"), {
+      number: issueNumber,
+      lineUserId: useLine ? lineUserId : null,
+      notified: false,
+      createdAt: new Date()
+    });
+
+    localStorage.setItem("issued", "true");
+  }
+
+  window.issue = issue;
+</script>
+
+</body>
+</html>
