@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>整理番号発行</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+    }
+    button {
+      font-size: 28px;
+      padding: 20px 40px;
+    }
+    .number {
+      margin-top: 30px;
+      font-size: 80px;
+      color: blue;
+    }
+    input {
+      font-size: 20px;
+      padding: 10px;
+      width: 80%;
+      max-width: 360px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>整理番号を発行します</h1>
+
+<p>※ LINE通知を受け取るために必要です</p>
+<input id="lineUserId" placeholder="LINEユーザーIDを入力してください">
+
+<br>
+<button onclick="issue()">整理番号を発行</button>
+
+<div class="number" id="myNumber"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    updateDoc,
+    collection,
+    addDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // 🔴 Firebase設定（自分のものに）
+  const firebaseConfig = {
+    apiKey: "AIzaSyCp0b5owSOIq5QDJHJKkxtOdwVk9roJ3VI",
+    authDomain: "soudan-cd1c7.firebaseapp.com",
+    projectId: "soudan-cd1c7"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const systemRef = doc(db, "systems", "main");
+
+  async function issue() {
+
+  
+    const lineUserId =
+      document.getElementById("lineUserId").value.trim();
+
+    if (!lineUserId) {
+      alert("LINEユーザーIDを入力してください。");
+      return;
+    }
+
+    const snap = await getDoc(systemRef);
+    const data = snap.data();
+
+    const issueNumber = data.issueNumber;
+    const queue = data.queue;
+
+    // 表示
+    document.getElementById("myNumber").textContent = issueNumber;
+
+    // 呼び出し待ちへ
+    queue.push(issueNumber);
+
