@@ -17,14 +17,7 @@
     label {
       font-size: 4.5vw;
       display: block;
-      margin: 2vh 0;
-    }
-    input {
-      font-size: 5vw;
-      padding: 12px;
-      width: 90%;
-      max-width: 420px;
-      margin-bottom: 2vh;
+      margin: 3vh 0;
     }
     button {
       font-size: 6vw;
@@ -44,14 +37,15 @@
 
 <h1>整理番号を発行します</h1>
 
+<p style="font-size:4vw;">
+LINE通知は任意です。<br>
+通知を希望する方は、先に公式アカウントを友だち追加してください。
+</p>
+
 <label>
   <input type="checkbox" id="useLine">
-  LINEで呼び出し通知を受け取る（任意）
+  LINEで呼び出し通知を受け取る
 </label>
-
-<div id="lineArea" style="display:none;">
-  <input id="lineUserId" placeholder="LINEユーザーIDを入力">
-</div>
 
 <button onclick="issue()">整理番号を発行</button>
 
@@ -76,12 +70,9 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-  const systemRef = doc(db, "systems", "main");
 
-  document.getElementById("useLine").addEventListener("change", e => {
-    document.getElementById("lineArea").style.display =
-      e.target.checked ? "block" : "none";
-  });
+  const systemRef = doc(db, "systems", "main");
+  const latestLineUserRef = doc(db, "meta", "latestLineUser");
 
   async function issue() {
     const snap = await getDoc(systemRef);
@@ -96,11 +87,15 @@
     }
 
     const useLine = document.getElementById("useLine").checked;
-    const lineUserId = document.getElementById("lineUserId").value.trim();
 
-    if (useLine && !lineUserId) {
-      alert("LINE通知を利用する場合はユーザーIDを入力してください。");
-      return;
+    let lineUserId = null;
+    if (useLine) {
+      const lineSnap = await getDoc(latestLineUserRef);
+      if (!lineSnap.exists()) {
+        alert("LINE通知を利用する場合は、先に友だち追加してください。");
+        return;
+      }
+      lineUserId = lineSnap.data().lineUserId;
     }
 
     const issueNumber = data.issueNumber;
@@ -116,7 +111,7 @@
 
     await addDoc(collection(db, "tickets"), {
       number: issueNumber,
-      lineUserId: useLine ? lineUserId : null,
+      lineUserId: lineUserId,
       notified: false,
       eventId: currentEventId,
       createdAt: new Date()
@@ -130,3 +125,4 @@
 
 </body>
 </html>
+``
