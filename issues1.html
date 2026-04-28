@@ -14,6 +14,10 @@
       font-size: 7vw;
       margin-top: 6vh;
     }
+    p {
+      font-size: 4.5vw;
+      margin: 2vh 5vw;
+    }
     label {
       font-size: 4.5vw;
       display: block;
@@ -37,7 +41,7 @@
 
 <h1>整理番号を発行します</h1>
 
-<p style="font-size:4vw;">
+<p>
 LINE通知は任意です。<br>
 通知を希望する方は、先に公式アカウントを友だち追加してください。
 </p>
@@ -62,6 +66,7 @@ LINE通知は任意です。<br>
     addDoc
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+  // Firebase 設定
   const firebaseConfig = {
     apiKey: "AIzaSyCp0b5owSOIq5QDJHJKkxtOdwVk9roJ3VI",
     authDomain: "soudan-cd1c7.firebaseapp.com",
@@ -75,12 +80,13 @@ LINE通知は任意です。<br>
   const latestLineUserRef = doc(db, "meta", "latestLineUser");
 
   async function issue() {
+    // 現在のシステム状態を取得
     const snap = await getDoc(systemRef);
     const data = snap.data();
 
+    // eventId 連動の1端末1回制御
     const currentEventId = data.eventId;
     const issuedEventId = localStorage.getItem("issuedEventId");
-
     if (issuedEventId == currentEventId) {
       alert("この端末ではすでに整理番号を発行しています。");
       return;
@@ -88,35 +94,42 @@ LINE通知は任意です。<br>
 
     const useLine = document.getElementById("useLine").checked;
 
+    // LINE通知を使う場合、直近の userId を取得
     let lineUserId = null;
     if (useLine) {
       const lineSnap = await getDoc(latestLineUserRef);
       if (!lineSnap.exists()) {
-        alert("LINE通知を利用する場合は、先に友だち追加してください。");
+        alert("LINE通知を利用する場合は、先に公式アカウントを友だち追加してください。");
         return;
       }
       lineUserId = lineSnap.data().lineUserId;
     }
 
     const issueNumber = data.issueNumber;
-    const queue = data.queue;
+    const queue = data.queue || [];
 
+    // 画面表示
     document.getElementById("myNumber").textContent = issueNumber;
+
+    // キューに追加
     queue.push(issueNumber);
 
+    // systems/main を更新
     await updateDoc(systemRef, {
       issueNumber: issueNumber + 1,
       queue: queue
     });
 
+    // tickets に保存（GAS が通知に使用）
     await addDoc(collection(db, "tickets"), {
       number: issueNumber,
-      lineUserId: lineUserId,
+      lineUserId: lineUserId,   // null 可
       notified: false,
       eventId: currentEventId,
       createdAt: new Date()
     });
 
+    // このイベントでは発行済み
     localStorage.setItem("issuedEventId", currentEventId);
   }
 
