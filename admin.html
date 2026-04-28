@@ -1,4 +1,4 @@
-<!DOCTYPE html><!DOCTYPE htmlElementById("warning");
+<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
@@ -128,6 +128,8 @@
 
   onSnapshot(systemRef, (docSnap) => {
     const data = docSnap.data();
+  
+    const warningEl = document.getElementById("warning");
 
     document.getElementById("current").textContent =
       data.currentNumber !== null ? data.currentNumber : "---";
@@ -135,9 +137,10 @@
     document.getElementById("called").textContent =
       data.calledNumbers.length > 0 ? data.calledNumbers.join(" , ") : "";
 
-    document.getElementById("waitingAdmin").textContent =
-      `${data.queue.length} 人待ち`;
-
+      const queue = data.queue || [];
+document.getElementById("waitingAdmin").textContent =
+  `${queue.length} 人待ち`;
+    
     if (!data.calledAt) {
       warningEl.textContent = "";
       return;
