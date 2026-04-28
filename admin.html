@@ -77,6 +77,7 @@
     onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+  // Firebase 設定（issue / display と同じ）
   const firebaseConfig = {
     apiKey: "AIzaSyCp0b5owSOIq5QDJHJKkxtOdwVk9roJ3VI",
     authDomain: "soudan-cd1c7.firebaseapp.com",
@@ -87,17 +88,23 @@
   const db = getFirestore(app);
   const systemRef = doc(db, "systems", "main");
 
+  // =====================
+  // 次の番号を呼び出す
+  // =====================
   async function callNext() {
     const snap = await getDoc(systemRef);
     const data = snap.data();
 
-    let { queue, currentNumber, calledNumbers } = data;
+    const queue = data.queue || [];
+    let calledNumbers = data.calledNumbers || [];
+    const currentNumber = data.currentNumber;
 
     if (queue.length === 0) {
       alert("呼び出し待ちの番号がありません");
       return;
     }
 
+    // 直前の番号を履歴へ
     if (currentNumber !== null) {
       calledNumbers.unshift(currentNumber);
       calledNumbers = calledNumbers.slice(0, 10);
@@ -113,34 +120,49 @@
     });
   }
 
+  // =====================
+  // 全リセット
+  // =====================
   async function resetAll() {
     if (!confirm("すべてリセットします。よろしいですか？")) return;
+
+    const snap = await getDoc(systemRef);
+    const data = snap.data();
+    const nextEventId = (data.eventId || 0) + 1;
 
     await updateDoc(systemRef, {
       issueNumber: 1,
       queue: [],
       currentNumber: null,
       calledNumbers: [],
-      calledAt: null
-      eventId: firebase.firestore.FieldValue.increment(1)
+      calledAt: null,
+      eventId: nextEventId
     });
   }
 
+  // =====================
+  // リアルタイム表示
+  // =====================
+  const currentEl = document.getElementById("current");
+  const waitingEl = document.getElementById("waitingAdmin");
+  const calledEl = document.getElementById("called");
+  const warningEl = document.getElementById("warning");
+
   onSnapshot(systemRef, (docSnap) => {
     const data = docSnap.data();
-  
-    const warningEl = document.getElementById("warning");
 
-    document.getElementById("current").textContent =
+    const queue = data.queue || [];
+    const calledNumbers = data.calledNumbers || [];
+
+    currentEl.textContent =
       data.currentNumber !== null ? data.currentNumber : "---";
 
-    document.getElementById("called").textContent =
-      data.calledNumbers.length > 0 ? data.calledNumbers.join(" , ") : "";
+    waitingEl.textContent =
+      `${queue.length} 人待ち`;
 
-      const queue = data.queue || [];
-document.getElementById("waitingAdmin").textContent =
-  `${queue.length} 人待ち`;
-    
+    calledEl.textContent =
+      calledNumbers.length > 0 ? calledNumbers.join(" , ") : "";
+
     if (!data.calledAt) {
       warningEl.textContent = "";
       return;
@@ -155,6 +177,7 @@ document.getElementById("waitingAdmin").textContent =
         : "";
   });
 
+  // HTML から呼べるように
   window.callNext = callNext;
   window.resetAll = resetAll;
 </script>
