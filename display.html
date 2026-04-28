@@ -2,77 +2,140 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>呼び出し番号表示</title>
+  <title>整理番号発行</title>
   <style>
     body {
+      margin: 0;
+      padding: 0;
       font-family: sans-serif;
       text-align: center;
     }
     h1 {
-      font-size: 48px;
+      font-size: 7vw;
+      margin-top: 6vh;
     }
-    .current {
-      font-size: 140px;
-      color: red;
-      margin: 40px 0;
+    p {
+      font-size: 4.5vw;
+      margin: 2vh 5vw;
     }
-    .waiting {
-      font-size: 32px;
-      margin-bottom: 20px;
+    label {
+      font-size: 4.5vw;
+      display: block;
+      margin: 3vh 0;
     }
-    .called {
-      font-size: 28px;
-      color: #555;
+    button {
+      font-size: 6vw;
+      padding: 20px;
+      width: 90%;
+      max-width: 420px;
+    }
+    .number {
+      margin-top: 6vh;
+      font-size: 25vw;
+      color: blue;
     }
   </style>
 </head>
 
 <body>
 
-<h1>ただいま呼び出し中</h1>
+<h1>整理番号を発行します</h1>
 
-<div class="current" id="current">---</div>
+<p>
+LINE通知は任意です。<br>
+通知を希望する方は、先に公式アカウントを友だち追加してください。
+</p>
 
-<div class="waiting" id="waiting"></div>
+<label>
+  <input type="checkbox" id="useLine">
+  LINEで呼び出し通知を受け取る
+</label>
 
-<h2>呼び出し済み番号</h2>
-<div class="called" id="called"></div>
+<button onclick="issue()">整理番号を発行</button>
+
+<div class="number" id="myNumber"></div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import {
     getFirestore,
     doc,
-    onSnapshot
+    getDoc,
+    updateDoc,
+    collection,
+    addDoc
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+  // Firebase 設定
   const firebaseConfig = {
     apiKey: "AIzaSyCp0b5owSOIq5QDJHJKkxtOdwVk9roJ3VI",
     authDomain: "soudan-cd1c7.firebaseapp.com",
     projectId: "soudan-cd1c7"
   };
 
-  const currentEl = document.getElementById("current");
-const waitingEl = document.getElementById("waiting");
-const calledEl = document.getElementById("called");
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
 
-onSnapshot(systemRef, (docSnap) => {
-  const data = docSnap.data();
+  const systemRef = doc(db, "systems", "main");
+  const latestLineUserRef = doc(db, "meta", "latestLineUser");
 
-  const queue = data.queue || [];
-  const calledNumbers = data.calledNumbers || [];
+  async function issue() {
+    // 現在のシステム状態を取得
+    const snap = await getDoc(systemRef);
+    const data = snap.data();
 
-  currentEl.textContent =
-    data.currentNumber !== null ? data.currentNumber : "---";
+    // eventId 連動の1端末1回制御
+    const currentEventId = data.eventId;
+    const issuedEventId = localStorage.getItem("issuedEventId");
+    if (issuedEventId == currentEventId) {
+      alert("この端末ではすでに整理番号を発行しています。");
+      return;
+    }
 
-  waitingEl.textContent =
-    `現在の待ち人数：${queue.length} 人`;
+    const useLine = document.getElementById("useLine").checked;
 
-  calledEl.textContent =
-    calledNumbers.length > 0 ? calledNumbers.join(" , ") : "";
-});
+    // LINE通知を使う場合、直近の userId を取得
+    let lineUserId = null;
+    if (useLine) {
+      const lineSnap = await getDoc(latestLineUserRef);
+      if (!lineSnap.exists()) {
+        alert("LINE通知を利用する場合は、先に公式アカウントを友だち追加してください。");
+        return;
+      }
+      lineUserId = lineSnap.data().lineUserId;
+    }
 
+    const issueNumber = data.issueNumber;
+    const queue = data.queue || [];
+
+    // 画面表示
+    document.getElementById("myNumber").textContent = issueNumber;
+
+    // キューに追加
+    queue.push(issueNumber);
+
+    // systems/main を更新
+    await updateDoc(systemRef, {
+      issueNumber: issueNumber + 1,
+      queue: queue
+    });
+
+    // tickets に保存（GAS が通知に使用）
+    await addDoc(collection(db, "tickets"), {
+      number: issueNumber,
+      lineUserId: lineUserId,   // null 可
+      notified: false,
+      eventId: currentEventId,
+      createdAt: new Date()
+    });
+
+    // このイベントでは発行済み
+    localStorage.setItem("issuedEventId", currentEventId);
+  }
+
+  window.issue = issue;
 </script>
 
 </body>
 </html>
+``
