@@ -2,71 +2,64 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>整理番号発行</title>
+  <title>呼び出し番号表示</title>
   <style>
     body {
       margin: 0;
       padding: 0;
       font-family: sans-serif;
       text-align: center;
+      background: #ffffff;
     }
+
     h1 {
-      font-size: 7vw;
-      margin-top: 6vh;
-    }
-    p {
-      font-size: 4.5vw;
-      margin: 2vh 5vw;
-    }
-    label {
-      font-size: 4.5vw;
-      display: block;
-      margin: 3vh 0;
-    }
-    button {
       font-size: 6vw;
-      padding: 20px;
-      width: 90%;
-      max-width: 420px;
+      margin-top: 4vh;
     }
-    .number {
-      margin-top: 6vh;
+
+    .current {
       font-size: 25vw;
-      color: blue;
+      color: red;
+      margin: 4vh 0;
+    }
+
+    .waiting {
+      font-size: 6vw;
+      margin-bottom: 3vh;
+    }
+
+    h2 {
+      font-size: 4.5vw;
+      margin-top: 3vh;
+    }
+
+    .called {
+      font-size: 4vw;
+      color: #555;
     }
   </style>
 </head>
 
 <body>
 
-<h1>整理番号を発行します</h1>
+<h1>ただいま呼び出し中</h1>
 
-<p>
-LINE通知は任意です。<br>
-通知を希望する方は、先に公式アカウントを友だち追加してください。
-</p>
+<div class="current" id="current">---</div>
 
-<label>
-  <input type="checkbox" id="useLine">
-  LINEで呼び出し通知を受け取る
-</label>
+<div class="waiting" id="waiting"></div>
 
-<button onclick="issue()">整理番号を発行</button>
-
-<div class="number" id="myNumber"></div>
+<h2>呼び出し済み番号</h2>
+<div class="called" id="called"></div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import {
     getFirestore,
     doc,
-    getDoc,
-    updateDoc,
-    collection,
-    addDoc
+    onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  // Firebase 設定
+  // Firebase 設定（admin / issue と同じ）
   const firebaseConfig = {
     apiKey: "AIzaSyCp0b5owSOIq5QDJHJKkxtOdwVk9roJ3VI",
     authDomain: "soudan-cd1c7.firebaseapp.com",
@@ -75,67 +68,33 @@ LINE通知は任意です。<br>
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-
   const systemRef = doc(db, "systems", "main");
-  const latestLineUserRef = doc(db, "meta", "latestLineUser");
 
-  async function issue() {
-    // 現在のシステム状態を取得
-    const snap = await getDoc(systemRef);
-    const data = snap.data();
+  // DOM参照（先に取得して安定化）
+  const currentEl = document.getElementById("current");
+  const waitingEl = document.getElementById("waiting");
+  const calledEl = document.getElementById("called");
 
-    // eventId 連動の1端末1回制御
-    const currentEventId = data.eventId;
-    const issuedEventId = localStorage.getItem("issuedEventId");
-    if (issuedEventId == currentEventId) {
-      alert("この端末ではすでに整理番号を発行しています。");
-      return;
-    }
+  // リアルタイム監視
+  onSnapshot(systemRef, (docSnap) => {
+    const data = docSnap.data();
 
-    const useLine = document.getElementById("useLine").checked;
-
-    // LINE通知を使う場合、直近の userId を取得
-    let lineUserId = null;
-    if (useLine) {
-      const lineSnap = await getDoc(latestLineUserRef);
-      if (!lineSnap.exists()) {
-        alert("LINE通知を利用する場合は、先に公式アカウントを友だち追加してください。");
-        return;
-      }
-      lineUserId = lineSnap.data().lineUserId;
-    }
-
-    const issueNumber = data.issueNumber;
     const queue = data.queue || [];
+    const calledNumbers = data.calledNumbers || [];
 
-    // 画面表示
-    document.getElementById("myNumber").textContent = issueNumber;
+    // 現在呼び出し番号
+    currentEl.textContent =
+      data.currentNumber !== null ? data.currentNumber : "---";
 
-    // キューに追加
-    queue.push(issueNumber);
+    // 待ち人数
+    waitingEl.textContent =
+      `現在の待ち人数：${queue.length} 人`;
 
-    // systems/main を更新
-    await updateDoc(systemRef, {
-      issueNumber: issueNumber + 1,
-      queue: queue
-    });
-
-    // tickets に保存（GAS が通知に使用）
-    await addDoc(collection(db, "tickets"), {
-      number: issueNumber,
-      lineUserId: lineUserId,   // null 可
-      notified: false,
-      eventId: currentEventId,
-      createdAt: new Date()
-    });
-
-    // このイベントでは発行済み
-    localStorage.setItem("issuedEventId", currentEventId);
-  }
-
-  window.issue = issue;
+    // 呼び出し済み番号
+    calledEl.textContent =
+      calledNumbers.length > 0 ? calledNumbers.join(" , ") : "";
+  });
 </script>
 
 </body>
 </html>
-``
